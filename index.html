@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      form input { border: 0; padding: 10px; width: 90%; margin-right: 0.5%; }
+      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #EAE; }
+    </style>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  </head>
+  <body>
+    <!-- <ul id="messages"></ul>
+    <form action="">
+      <input id="m" autocomplete="off" /><button>Send</button>
+    </form> -->
+
+    <div class="container-fluid vw-100 vh-100 justify-center align-center p-5">
+      <div class="row">
+        <div>
+          <h1>
+            Sorteio de camisa da InfoJr!!!
+          </h1>
+          <p>
+            Garanta já a sua!!!!!!!!
+          </p>
+        </div>
+        <hr>
+      </div>
+      <div class="row" style="flex-direction: column;">
+        <div class="mb-3">
+          <p>1) Diga-me o seu nome, jovem gafanhoto:</p>
+          <input name="nome" class="form-control" type="text" placeholder="Seu nome">
+        </div>
+        <div>
+          <p>2) Escolha a cor da sua camisa:</p>
+          <div class="d-flex">
+            <button class="btn btn-light border-dark" onclick="entrarNaSala('branca')">Branca</button>
+            <button class="btn btn-dark ml-2" onclick="entrarNaSala('preta')">Preta</button>
+            <button class="btn btn-success ml-2" onclick="entrarNaSala('verde')">Verde</button>
+          </div>
+        </div>
+      </div>
+      <div id="estado" class="row d-none" style="flex-direction: column">
+        <hr>
+        <h3>Estado do sorteio:</h3>
+        <span id="sala-atual"></span>
+        <p>
+          <span id="ganhador">Sem ganhadores no momento.</span>
+          <span id="cronometro"></span>
+        </p>
+        <p>
+          <strong>Lista de inscritos:</strong>
+        </p>
+        <div id="lista-inscritos">
+        </div>
+      </div>
+      <div class="row d-none" id="voce-ganhou">
+        <div>
+          <hr>
+          <p>
+            Parabéns!!!!!!!!!<br>
+            Você ganhou o sorteio!!!
+          </p>
+          <p>
+            <small class="text-secondary">
+              Para retirar o seu prêmio, basta tirar um print desta tela e enviá-lo 37 vezes para Hebit 🤠, que é o diretor de sorteios da InfoJr.<br>
+              Repita este processo todos os dias até ele te enviar a camisa que ele está te devendo.
+            </small>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div id="inscrito" class="inscrito d-none">
+      <p id="nome"></p>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  </body>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+        let eu = null;
+        let ultimoGanhador = null;
+
+        const maxTimer = 60;
+        let timer = maxTimer;
+
+        function carregarInscritos(inscritos) {
+          $("#lista-inscritos").html("")
+          for (const inscrito of inscritos) {
+            const elemento = $("#inscrito").clone().removeClass("d-none").attr("id", "");
+
+            elemento.find("#nome").html(inscrito.nome);
+
+            $("#lista-inscritos").append(elemento);
+          }
+        }
+
+        function cronometro(segundos) {
+          timer = segundos;
+
+          $("#ganhador").html(
+            (ultimoGanhador ? 
+              ultimoGanhador.nome + " ganhou a camisa " + ultimoGanhador.sala + "!!!" : 
+              "Sem ganhadores no momento."
+            ) + "<br>"
+          );
+          $("#cronometro").html(segundos >= 0 ?
+            "O sorteio se encerrará em: " + timer.toString() + "..." :
+            "Aguardando novas pessoas se inscreverem..."
+          );
+          
+        }
+
+        var socket = io();
+
+        function entrarNaSala(sala) {
+          socket.emit('entrar', {
+            nome: $('input[name="nome"]').val().trim() || "Anônimo",
+            sala: sala
+          }); 
+        }
+
+        socket.on('connection', () => {
+          
+        });
+        
+        socket.on('lista', (data) => {
+          carregarInscritos(data.lista);
+        })
+
+        socket.on('eu', (data) => {
+          eu = data;
+
+          ultimoGanhador = null;
+
+          $('#estado').removeClass("d-none");
+          $('#sala-atual').html("Você está concorrendo à camisa " + data.sala);
+        })
+
+        socket.on('cronometro', (data) => {
+          console.log(data);
+          cronometro(data.segundos);
+        });
+
+        socket.on('ganhador', (data) => {
+          ultimoGanhador = data.ganhador;
+
+          if (data.ganhador.id == eu.id) {
+            $("#voce-ganhou").removeClass("d-none");
+          } else {
+            $("#voce-ganhou").addClass("d-none");
+          }
+        })
+
+        socket.on('disconnect', () => {
+          console.log('user disconnected');
+        });
+
+  </script>
+</html>
